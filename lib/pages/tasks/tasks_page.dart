@@ -23,6 +23,7 @@ class _TasksPageState extends State<TasksPage> {
   List<Client> _clients = <Client>[];
 
   bool _isLoading = true;
+  bool _showFilters = false;
   int? _selectedClientId;
   String? _selectedStatus;
 
@@ -136,6 +137,19 @@ class _TasksPageState extends State<TasksPage> {
     await _loadData();
   }
 
+  Future<void> _clearFilters() async {
+    setState(() {
+      _selectedClientId = null;
+      _selectedStatus = null;
+    });
+
+    await _loadData();
+  }
+
+  bool get _hasActiveFilters {
+    return _selectedClientId != null || _selectedStatus != null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
@@ -157,61 +171,103 @@ class _TasksPageState extends State<TasksPage> {
                   prefixIcon: Icon(Icons.search),
                 ),
               ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<int?>(
-                initialValue: _selectedClientId,
-                decoration: const InputDecoration(
-                  labelText: 'Cliente',
-                ),
-                items: <DropdownMenuItem<int?>>[
-                  const DropdownMenuItem<int?>(
-                    value: null,
-                    child: Text('Todos'),
-                  ),
-                  ..._clients.map(
-                        (Client client) => DropdownMenuItem<int?>(
-                      value: client.id,
-                      child: Text(client.name),
+              const SizedBox(height: 12),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _showFilters = !_showFilters;
+                        });
+                      },
+                      icon: Icon(
+                        _showFilters
+                            ? Icons.filter_alt_off_outlined
+                            : Icons.filter_alt_outlined,
+                      ),
+                      label: Text(
+                        _showFilters ? 'Ocultar filtros' : 'Mostrar filtros',
+                      ),
                     ),
                   ),
+                  if (_hasActiveFilters) ...<Widget>[
+                    const SizedBox(width: 12),
+                    OutlinedButton(
+                      onPressed: _clearFilters,
+                      child: const Text('Limpar'),
+                    ),
+                  ],
                 ],
-                onChanged: (int? value) async {
-                  setState(() {
-                    _selectedClientId = value;
-                  });
-                  await _loadData();
-                },
               ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String?>(
-                initialValue: _selectedStatus,
-                decoration: const InputDecoration(
-                  labelText: 'Status',
+              AnimatedCrossFade(
+                firstChild: const SizedBox.shrink(),
+                secondChild: Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Column(
+                    children: <Widget>[
+                      DropdownButtonFormField<int?>(
+                        initialValue: _selectedClientId,
+                        decoration: const InputDecoration(
+                          labelText: 'Cliente',
+                        ),
+                        items: <DropdownMenuItem<int?>>[
+                          const DropdownMenuItem<int?>(
+                            value: null,
+                            child: Text('Todos'),
+                          ),
+                          ..._clients.map(
+                                (Client client) => DropdownMenuItem<int?>(
+                              value: client.id,
+                              child: Text(client.name),
+                            ),
+                          ),
+                        ],
+                        onChanged: (int? value) async {
+                          setState(() {
+                            _selectedClientId = value;
+                          });
+                          await _loadData();
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String?>(
+                        initialValue: _selectedStatus,
+                        decoration: const InputDecoration(
+                          labelText: 'Status',
+                        ),
+                        items: const <DropdownMenuItem<String?>>[
+                          DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text('Todos'),
+                          ),
+                          DropdownMenuItem<String?>(
+                            value: 'Pendente',
+                            child: Text('Pendente'),
+                          ),
+                          DropdownMenuItem<String?>(
+                            value: 'Em andamento',
+                            child: Text('Em andamento'),
+                          ),
+                          DropdownMenuItem<String?>(
+                            value: 'Concluído',
+                            child: Text('Concluído'),
+                          ),
+                        ],
+                        onChanged: (String? value) async {
+                          setState(() {
+                            _selectedStatus = value;
+                          });
+                          await _loadData();
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-                items: const <DropdownMenuItem<String?>>[
-                  DropdownMenuItem<String?>(
-                    value: null,
-                    child: Text('Todos'),
-                  ),
-                  DropdownMenuItem<String?>(
-                    value: 'Pendente',
-                    child: Text('Pendente'),
-                  ),
-                  DropdownMenuItem<String?>(
-                    value: 'Em andamento',
-                    child: Text('Em andamento'),
-                  ),
-                  DropdownMenuItem<String?>(
-                    value: 'Concluído',
-                    child: Text('Concluído'),
-                  ),
-                ],
-                onChanged: (String? value) async {
-                  setState(() {
-                    _selectedStatus = value;
-                  });
-                  await _loadData();
-                },
+                crossFadeState: _showFilters
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                duration: const Duration(milliseconds: 220),
               ),
               const SizedBox(height: 16),
               Expanded(
@@ -296,28 +352,101 @@ class _TaskCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
+  Color _getCardBackgroundColor() {
+    final String status = item.task.status.trim().toLowerCase();
+
+    if (status == 'pendente') {
+      return const Color(0xFFFFF4E5);
+    }
+
+    if (status == 'em andamento') {
+      return const Color(0xFFEAF7EE);
+    }
+
+    if (status == 'concluído') {
+      return const Color(0xFFEEEAFE);
+    }
+
+    return Colors.white;
+  }
+
+  Color _getStatusColor() {
+    final String status = item.task.status.trim().toLowerCase();
+
+    if (status == 'pendente') {
+      return const Color(0xFFE65100);
+    }
+
+    if (status == 'em andamento') {
+      return const Color(0xFF1B5E20);
+    }
+
+    if (status == 'concluído') {
+      return const Color(0xFF4A148C);
+    }
+
+    return AppColors.textPrimary;
+  }
+
   @override
   Widget build(BuildContext context) {
     final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
     final TextTheme textTheme = Theme.of(context).textTheme;
+    final Color cardBackgroundColor = _getCardBackgroundColor();
+    final Color statusColor = _getStatusColor();
 
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: cardBackgroundColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.black.withAlpha(10),
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Expanded(
-                  child: Text(
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
                     item.task.title,
                     style: textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Data/Hora: ${dateFormat.format(item.task.date)} às ${item.task.time}',
+                    style: textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(170),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      item.task.status,
+                      style: textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: statusColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
                 IconButton(
                   onPressed: onEdit,
                   icon: const Icon(Icons.edit_outlined),
@@ -333,42 +462,6 @@ class _TaskCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Cliente/Projeto: ${item.clientName}',
-              style: textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Data/Hora: ${dateFormat.format(item.task.date)} às ${item.task.time}',
-              style: textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Solicitante: ${(item.task.requester ?? '').isEmpty ? '-' : item.task.requester}',
-              style: textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Status: ${item.task.status}',
-              style: textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Horas gastas: ${item.task.hours.toStringAsFixed(2)}',
-              style: textTheme.bodyMedium,
-            ),
-            if ((item.task.description ?? '').isNotEmpty) ...<Widget>[
-              const SizedBox(height: 8),
-              Text(
-                item.task.description!,
-                style: textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -453,9 +546,12 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
   void initState() {
     super.initState();
 
+    final DateTime now = DateTime.now();
     final Task? task = widget.taskItem?.task;
-    _selectedDate = task?.date ?? DateTime.now();
-    _selectedTime = task?.time ?? '08:00';
+
+    _selectedDate = task?.date ?? now;
+    _selectedTime = task?.time ??
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
     _selectedClientId = task?.clientId ?? widget.clients.first.id;
     _selectedStatus = task?.status ?? 'Pendente';
 
@@ -618,20 +714,6 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _titleController,
-                    decoration: const InputDecoration(
-                      labelText: 'Título *',
-                      hintText: 'Digite o título da tarefa',
-                    ),
-                    validator: (String? value) {
-                      if ((value ?? '').trim().isEmpty) {
-                        return 'Informe o título da tarefa.';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
                   DropdownButtonFormField<int>(
                     initialValue: _selectedClientId,
                     decoration: const InputDecoration(
@@ -697,72 +779,155 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _requesterController,
-                    decoration: const InputDecoration(
-                      labelText: 'Solicitante',
-                      hintText: 'Digite o solicitante',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _descriptionController,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: 'Descrição completa',
-                      hintText: 'Descreva a tarefa',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _doneDescriptionController,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: 'O que foi feito',
-                      hintText: 'Descreva o que foi feito',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _hoursController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(
-                      labelText: 'Horas gastas',
-                      hintText: 'Digite as horas gastas',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedStatus,
-                    decoration: const InputDecoration(
-                      labelText: 'Status',
-                    ),
-                    items: const <DropdownMenuItem<String>>[
-                      DropdownMenuItem<String>(
-                        value: 'Pendente',
-                        child: Text('Pendente'),
+                  const SizedBox(height: 20),
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: AppColors.border,
                       ),
-                      DropdownMenuItem<String>(
-                        value: 'Em andamento',
-                        child: Text('Em andamento'),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            'Dados da tarefa',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Preencha as informações principais da tarefa.',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _titleController,
+                            decoration: const InputDecoration(
+                              labelText: 'Título *',
+                              hintText: 'Digite o título da tarefa',
+                            ),
+                            validator: (String? value) {
+                              if ((value ?? '').trim().isEmpty) {
+                                return 'Informe o título da tarefa.';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _requesterController,
+                            decoration: const InputDecoration(
+                              labelText: 'Solicitante',
+                              hintText: 'Digite o solicitante',
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _descriptionController,
+                            maxLines: 3,
+                            decoration: const InputDecoration(
+                              labelText: 'Descrição completa',
+                              hintText: 'Descreva a tarefa',
+                            ),
+                          ),
+                        ],
                       ),
-                      DropdownMenuItem<String>(
-                        value: 'Concluído',
-                        child: Text('Concluído'),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: AppColors.border,
                       ),
-                    ],
-                    onChanged: (String? value) {
-                      if (value == null) {
-                        return;
-                      }
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            'Execução da tarefa',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Preencha as informações de andamento e conclusão.',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _doneDescriptionController,
+                            maxLines: 3,
+                            decoration: const InputDecoration(
+                              labelText: 'O que foi feito',
+                              hintText: 'Descreva o que foi feito',
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _hoursController,
+                            keyboardType:
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: const InputDecoration(
+                              labelText: 'Horas trabalhadas',
+                              hintText: 'Digite as horas trabalhadas',
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField<String>(
+                            initialValue: _selectedStatus,
+                            decoration: const InputDecoration(
+                              labelText: 'Status',
+                            ),
+                            items: const <DropdownMenuItem<String>>[
+                              DropdownMenuItem<String>(
+                                value: 'Pendente',
+                                child: Text('Pendente'),
+                              ),
+                              DropdownMenuItem<String>(
+                                value: 'Em andamento',
+                                child: Text('Em andamento'),
+                              ),
+                              DropdownMenuItem<String>(
+                                value: 'Concluído',
+                                child: Text('Concluído'),
+                              ),
+                            ],
+                            onChanged: (String? value) {
+                              if (value == null) {
+                                return;
+                              }
 
-                      setState(() {
-                        _selectedStatus = value;
-                      });
-                    },
+                              setState(() {
+                                _selectedStatus = value;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 24),
                   SizedBox(

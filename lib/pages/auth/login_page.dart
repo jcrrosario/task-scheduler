@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:task_scheduler/core/constants/app_colors.dart';
 import 'package:task_scheduler/core/constants/app_strings.dart';
 import 'package:task_scheduler/pages/dashboard/dashboard_page.dart';
+import 'package:task_scheduler/services/auth_service.dart';
 import 'package:task_scheduler/widgets/app_primary_button.dart';
 import 'package:task_scheduler/widgets/app_text_field.dart';
 
@@ -14,11 +15,13 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final AuthService _authService = AuthService();
 
   late final TextEditingController _usernameController;
   late final TextEditingController _passwordController;
 
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -36,21 +39,34 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final bool isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) {
       return;
     }
 
+    setState(() {
+      _isLoading = true;
+    });
+
     final String password = _passwordController.text.trim().isEmpty
         ? AppStrings.defaultPassword
         : _passwordController.text.trim();
 
-    final bool isValidUser =
-        _usernameController.text.trim() == AppStrings.defaultUsername;
-    final bool isValidPassword = password == AppStrings.defaultPassword;
+    final bool authenticated = await _authService.validateLogin(
+      username: _usernameController.text.trim(),
+      password: password,
+    );
 
-    if (!isValidUser || !isValidPassword) {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (!authenticated) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Usuário ou senha inválidos.'),
@@ -188,13 +204,15 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           const SizedBox(height: 24),
                           AppPrimaryButton(
-                            label: AppStrings.loginButton,
+                            label: _isLoading
+                                ? 'Entrando...'
+                                : AppStrings.loginButton,
                             icon: Icons.lock_outline_rounded,
-                            onPressed: _submit,
+                            onPressed: _isLoading ? null : _submit,
                           ),
                           const SizedBox(height: 24),
                           Text(
-                            '© 2026 Principia Consultoria e Treinamento',
+                            '© 2026 Serenyo Tecnologia Ltda.',
                             textAlign: TextAlign.center,
                             style: textTheme.bodyMedium?.copyWith(
                               color: AppColors.textSecondary,

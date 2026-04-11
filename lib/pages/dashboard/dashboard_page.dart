@@ -15,29 +15,69 @@ class _DashboardPageState extends State<DashboardPage> {
   final DashboardRepository _repository = DashboardRepository();
 
   DashboardSummary? _summary;
+  List<int> _availableYears = <int>[];
+
   bool _isLoading = true;
+  int? _selectedMonth;
+  int? _selectedYear;
+
+  final Map<int, String> _months = const <int, String>{
+    1: 'Janeiro',
+    2: 'Fevereiro',
+    3: 'Março',
+    4: 'Abril',
+    5: 'Maio',
+    6: 'Junho',
+    7: 'Julho',
+    8: 'Agosto',
+    9: 'Setembro',
+    10: 'Outubro',
+    11: 'Novembro',
+    12: 'Dezembro',
+  };
 
   @override
   void initState() {
     super.initState();
-    _loadSummary();
+    _loadDashboard();
   }
 
-  Future<void> _loadSummary() async {
+  Future<void> _loadDashboard() async {
     setState(() {
       _isLoading = true;
     });
 
-    final DashboardSummary summary = await _repository.getSummary();
+    final List<int> years = await _repository.getAvailableYears();
+    final DashboardSummary summary = await _repository.getSummary(
+      month: _selectedMonth,
+      year: _selectedYear,
+    );
 
     if (!mounted) {
       return;
     }
 
     setState(() {
+      _availableYears = years;
       _summary = summary;
       _isLoading = false;
     });
+  }
+
+  Future<void> _changeMonth(int? month) async {
+    setState(() {
+      _selectedMonth = month;
+    });
+
+    await _loadDashboard();
+  }
+
+  Future<void> _changeYear(int? year) async {
+    setState(() {
+      _selectedYear = year;
+    });
+
+    await _loadDashboard();
   }
 
   @override
@@ -48,7 +88,7 @@ class _DashboardPageState extends State<DashboardPage> {
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : RefreshIndicator(
-          onRefresh: _loadSummary,
+          onRefresh: _loadDashboard,
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: <Widget>[
@@ -63,6 +103,50 @@ class _DashboardPageState extends State<DashboardPage> {
               Text(
                 'Resumo atual das tarefas cadastradas no aplicativo.',
                 style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 20),
+              DropdownButtonFormField<int?>(
+                initialValue: _selectedMonth,
+                decoration: const InputDecoration(
+                  labelText: 'Mês',
+                ),
+                items: <DropdownMenuItem<int?>>[
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text('Todos os meses'),
+                  ),
+                  ..._months.entries.map(
+                        (entry) => DropdownMenuItem<int?>(
+                      value: entry.key,
+                      child: Text(entry.value),
+                    ),
+                  ),
+                ],
+                onChanged: (int? value) async {
+                  await _changeMonth(value);
+                },
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int?>(
+                initialValue: _selectedYear,
+                decoration: const InputDecoration(
+                  labelText: 'Ano',
+                ),
+                items: <DropdownMenuItem<int?>>[
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text('Todos os anos'),
+                  ),
+                  ..._availableYears.map(
+                        (year) => DropdownMenuItem<int?>(
+                      value: year,
+                      child: Text(year.toString()),
+                    ),
+                  ),
+                ],
+                onChanged: (int? value) async {
+                  await _changeYear(value);
+                },
               ),
               const SizedBox(height: 20),
               LayoutBuilder(

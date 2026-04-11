@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:task_scheduler/core/constants/app_colors.dart';
 import 'package:task_scheduler/db/app_database.dart';
 import 'package:task_scheduler/repositories/client_repository.dart';
@@ -227,6 +228,10 @@ class _ClientCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final TextTheme textTheme = Theme.of(context).textTheme;
+    final NumberFormat currencyFormat = NumberFormat.currency(
+      locale: 'pt_BR',
+      symbol: 'R\$',
+    );
 
     return Card(
       child: Padding(
@@ -268,6 +273,15 @@ class _ClientCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Valor da hora: ${currencyFormat.format(client.hourlyRate)}',
+                      style: textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -352,6 +366,7 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
   late final TextEditingController _phoneController;
   late final TextEditingController _contactController;
   late final TextEditingController _emailController;
+  late final TextEditingController _hourlyRateController;
 
   bool _isSaving = false;
 
@@ -367,6 +382,9 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
     _contactController =
         TextEditingController(text: widget.client?.contact ?? '');
     _emailController = TextEditingController(text: widget.client?.email ?? '');
+    _hourlyRateController = TextEditingController(
+      text: (widget.client?.hourlyRate ?? 0).toStringAsFixed(2),
+    );
   }
 
   @override
@@ -376,6 +394,7 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
     _phoneController.dispose();
     _contactController.dispose();
     _emailController.dispose();
+    _hourlyRateController.dispose();
     super.dispose();
   }
 
@@ -390,6 +409,11 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
       _isSaving = true;
     });
 
+    final double hourlyRate = double.tryParse(
+      _hourlyRateController.text.replaceAll(',', '.').trim(),
+    ) ??
+        0;
+
     if (_isEditing) {
       await _repository.update(
         id: widget.client!.id,
@@ -398,6 +422,7 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
         phone: _phoneController.text,
         contact: _contactController.text,
         email: _emailController.text,
+        hourlyRate: hourlyRate,
       );
     } else {
       await _repository.create(
@@ -406,6 +431,7 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
         phone: _phoneController.text,
         contact: _contactController.text,
         email: _emailController.text,
+        hourlyRate: hourlyRate,
       );
     }
 
@@ -499,11 +525,23 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _emailController,
-                    textInputAction: TextInputAction.done,
+                    textInputAction: TextInputAction.next,
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
                       labelText: 'E-mail',
                       hintText: 'Digite o e-mail',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _hourlyRateController,
+                    textInputAction: TextInputAction.done,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Valor da hora',
+                      hintText: 'Digite o valor da hora',
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -518,9 +556,8 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
-                      onPressed: _isSaving
-                          ? null
-                          : () => Navigator.of(context).pop(false),
+                      onPressed:
+                      _isSaving ? null : () => Navigator.of(context).pop(false),
                       child: const Text('Cancelar'),
                     ),
                   ),

@@ -28,8 +28,7 @@ class ClientRepository {
 
     final query = _database.select(_database.clients)
       ..where(
-            (table) =>
-        table.name.like(filter) | table.cnpj.like(filter),
+            (table) => table.name.like(filter) | table.cnpj.like(filter),
       )
       ..orderBy([
             (table) => OrderingTerm(expression: table.name),
@@ -44,6 +43,7 @@ class ClientRepository {
     String? phone,
     String? contact,
     String? email,
+    double hourlyRate = 0,
   }) async {
     return _database.into(_database.clients).insert(
       ClientsCompanion.insert(
@@ -52,6 +52,7 @@ class ClientRepository {
         phone: Value(_normalizeNullable(phone)),
         contact: Value(_normalizeNullable(contact)),
         email: Value(_normalizeNullable(email)),
+        hourlyRate: Value(hourlyRate),
       ),
     );
   }
@@ -63,6 +64,7 @@ class ClientRepository {
     String? phone,
     String? contact,
     String? email,
+    double hourlyRate = 0,
   }) async {
     final rows = await (_database.update(_database.clients)
       ..where((table) => table.id.equals(id)))
@@ -73,6 +75,7 @@ class ClientRepository {
         phone: Value(_normalizeNullable(phone)),
         contact: Value(_normalizeNullable(contact)),
         email: Value(_normalizeNullable(email)),
+        hourlyRate: Value(hourlyRate),
       ),
     );
 

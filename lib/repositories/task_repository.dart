@@ -86,6 +86,18 @@ class TaskRepository {
     double hours = 0,
     String status = 'Pendente',
   }) async {
+    final String normalizedStatus =
+    status.trim().isEmpty ? 'Pendente' : status.trim();
+
+    final double clientHourlyRateSnapshot = await _resolveHourlyRateSnapshot(
+      clientId: clientId,
+      status: normalizedStatus,
+    );
+
+    final DateTime? completedAt = _resolveCompletedAtForCreate(
+      status: normalizedStatus,
+    );
+
     return _database.into(_database.tasks).insert(
       TasksCompanion.insert(
         clientId: clientId,
@@ -96,7 +108,9 @@ class TaskRepository {
         description: Value(_normalizeNullable(description)),
         doneDescription: Value(_normalizeNullable(doneDescription)),
         hours: Value(hours),
-        status: Value(status.trim().isEmpty ? 'Pendente' : status.trim()),
+        status: Value(normalizedStatus),
+        clientHourlyRateSnapshot: Value(clientHourlyRateSnapshot),
+        completedAt: Value(completedAt),
       ),
     );
   }
@@ -113,6 +127,24 @@ class TaskRepository {
     double hours = 0,
     String status = 'Pendente',
   }) async {
+    final Task? existingTask = await (_database.select(_database.tasks)
+      ..where((table) => table.id.equals(id)))
+        .getSingleOrNull();
+
+    final String normalizedStatus =
+    status.trim().isEmpty ? 'Pendente' : status.trim();
+
+    final double clientHourlyRateSnapshot = await _resolveHourlyRateSnapshot(
+      clientId: clientId,
+      status: normalizedStatus,
+      existingSnapshot: existingTask?.clientHourlyRateSnapshot ?? 0,
+    );
+
+    final DateTime? completedAt = _resolveCompletedAtForUpdate(
+      status: normalizedStatus,
+      existingCompletedAt: existingTask?.completedAt,
+    );
+
     final rows = await (_database.update(_database.tasks)
       ..where((table) => table.id.equals(id)))
         .write(
@@ -125,7 +157,9 @@ class TaskRepository {
         description: Value(_normalizeNullable(description)),
         doneDescription: Value(_normalizeNullable(doneDescription)),
         hours: Value(hours),
-        status: Value(status.trim().isEmpty ? 'Pendente' : status.trim()),
+        status: Value(normalizedStatus),
+        clientHourlyRateSnapshot: Value(clientHourlyRateSnapshot),
+        completedAt: Value(completedAt),
       ),
     );
 
@@ -138,6 +172,49 @@ class TaskRepository {
         .go();
 
     return rows > 0;
+  }
+
+  Future<double> _resolveHourlyRateSnapshot({
+    required int clientId,
+    required String status,
+    double existingSnapshot = 0,
+  }) async {
+    final String normalizedStatus = status.trim().toLowerCase();
+
+    if (normalizedStatus != 'concluído') {
+      return existingSnapshot;
+    }
+
+    final Client? client = await (_database.select(_database.clients)
+      ..where((table) => table.id.equals(clientId)))
+        .getSingleOrNull();
+
+    return client?.hourlyRate ?? 0;
+  }
+
+  DateTime? _resolveCompletedAtForCreate({
+    required String status,
+  }) {
+    final String normalizedStatus = status.trim().toLowerCase();
+
+    if (normalizedStatus == 'concluído') {
+      return DateTime.now();
+    }
+
+    return null;
+  }
+
+  DateTime? _resolveCompletedAtForUpdate({
+    required String status,
+    required DateTime? existingCompletedAt,
+  }) {
+    final String normalizedStatus = status.trim().toLowerCase();
+
+    if (normalizedStatus == 'concluído') {
+      return existingCompletedAt ?? DateTime.now();
+    }
+
+    return null;
   }
 
   String? _normalizeNullable(String? value) {

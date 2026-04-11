@@ -19,6 +19,8 @@ class Clients extends Table {
   TextColumn get contact => text().nullable()();
 
   TextColumn get email => text().nullable()();
+
+  RealColumn get hourlyRate => real().withDefault(const Constant(0))();
 }
 
 class Tasks extends Table {
@@ -41,6 +43,11 @@ class Tasks extends Table {
   RealColumn get hours => real().withDefault(const Constant(0))();
 
   TextColumn get status => text().withDefault(const Constant('Pendente'))();
+
+  RealColumn get clientHourlyRateSnapshot =>
+      real().withDefault(const Constant(0))();
+
+  DateTimeColumn get completedAt => dateTime().nullable()();
 }
 
 class Consultancies extends Table {
@@ -74,7 +81,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -84,6 +91,24 @@ class AppDatabase extends _$AppDatabase {
     onUpgrade: (Migrator migrator, int from, int to) async {
       if (from < 2) {
         await migrator.createTable(consultancies);
+      }
+
+      if (from < 3) {
+        await migrator.addColumn(clients, clients.hourlyRate);
+      }
+
+      if (from < 4) {
+        await migrator.addColumn(
+          tasks,
+          tasks.clientHourlyRateSnapshot,
+        );
+      }
+
+      if (from < 5) {
+        await migrator.addColumn(
+          tasks,
+          tasks.completedAt,
+        );
       }
     },
   );

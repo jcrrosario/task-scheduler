@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:task_scheduler/core/constants/app_colors.dart';
 import 'package:task_scheduler/models/dashboard_summary.dart';
 import 'package:task_scheduler/repositories/dashboard_repository.dart';
@@ -18,6 +19,7 @@ class _DashboardPageState extends State<DashboardPage> {
   List<int> _availableYears = <int>[];
 
   bool _isLoading = true;
+  bool _showFilters = false;
   int? _selectedMonth;
   int? _selectedYear;
 
@@ -80,8 +82,26 @@ class _DashboardPageState extends State<DashboardPage> {
     await _loadDashboard();
   }
 
+  Future<void> _clearFilters() async {
+    setState(() {
+      _selectedMonth = null;
+      _selectedYear = null;
+    });
+
+    await _loadDashboard();
+  }
+
+  bool get _hasActiveFilters {
+    return _selectedMonth != null || _selectedYear != null;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final NumberFormat currencyFormat = NumberFormat.currency(
+      locale: 'pt_BR',
+      symbol: 'R\$',
+    );
+
     return AppScaffold(
       title: 'Dashboard',
       body: SafeArea(
@@ -104,49 +124,93 @@ class _DashboardPageState extends State<DashboardPage> {
                 'Resumo atual das tarefas cadastradas no aplicativo.',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
-              const SizedBox(height: 20),
-              DropdownButtonFormField<int?>(
-                initialValue: _selectedMonth,
-                decoration: const InputDecoration(
-                  labelText: 'Mês',
-                ),
-                items: <DropdownMenuItem<int?>>[
-                  const DropdownMenuItem<int?>(
-                    value: null,
-                    child: Text('Todos os meses'),
-                  ),
-                  ..._months.entries.map(
-                        (entry) => DropdownMenuItem<int?>(
-                      value: entry.key,
-                      child: Text(entry.value),
+              const SizedBox(height: 16),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _showFilters = !_showFilters;
+                        });
+                      },
+                      icon: Icon(
+                        _showFilters
+                            ? Icons.filter_alt_off_outlined
+                            : Icons.filter_alt_outlined,
+                      ),
+                      label: Text(
+                        _showFilters
+                            ? 'Ocultar filtros'
+                            : 'Mostrar filtros',
+                      ),
                     ),
                   ),
+                  if (_hasActiveFilters) ...<Widget>[
+                    const SizedBox(width: 12),
+                    OutlinedButton(
+                      onPressed: _clearFilters,
+                      child: const Text('Limpar'),
+                    ),
+                  ],
                 ],
-                onChanged: (int? value) async {
-                  await _changeMonth(value);
-                },
               ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<int?>(
-                initialValue: _selectedYear,
-                decoration: const InputDecoration(
-                  labelText: 'Ano',
+              AnimatedCrossFade(
+                firstChild: const SizedBox.shrink(),
+                secondChild: Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Column(
+                    children: <Widget>[
+                      DropdownButtonFormField<int?>(
+                        initialValue: _selectedMonth,
+                        decoration: const InputDecoration(
+                          labelText: 'Mês',
+                        ),
+                        items: <DropdownMenuItem<int?>>[
+                          const DropdownMenuItem<int?>(
+                            value: null,
+                            child: Text('Todos os meses'),
+                          ),
+                          ..._months.entries.map(
+                                (entry) => DropdownMenuItem<int?>(
+                              value: entry.key,
+                              child: Text(entry.value),
+                            ),
+                          ),
+                        ],
+                        onChanged: (int? value) async {
+                          await _changeMonth(value);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<int?>(
+                        initialValue: _selectedYear,
+                        decoration: const InputDecoration(
+                          labelText: 'Ano',
+                        ),
+                        items: <DropdownMenuItem<int?>>[
+                          const DropdownMenuItem<int?>(
+                            value: null,
+                            child: Text('Todos os anos'),
+                          ),
+                          ..._availableYears.map(
+                                (year) => DropdownMenuItem<int?>(
+                              value: year,
+                              child: Text(year.toString()),
+                            ),
+                          ),
+                        ],
+                        onChanged: (int? value) async {
+                          await _changeYear(value);
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-                items: <DropdownMenuItem<int?>>[
-                  const DropdownMenuItem<int?>(
-                    value: null,
-                    child: Text('Todos os anos'),
-                  ),
-                  ..._availableYears.map(
-                        (year) => DropdownMenuItem<int?>(
-                      value: year,
-                      child: Text(year.toString()),
-                    ),
-                  ),
-                ],
-                onChanged: (int? value) async {
-                  await _changeYear(value);
-                },
+                crossFadeState: _showFilters
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                duration: const Duration(milliseconds: 220),
               ),
               const SizedBox(height: 20),
               LayoutBuilder(
@@ -161,9 +225,9 @@ class _DashboardPageState extends State<DashboardPage> {
                     cardsPerRow = 3;
                   }
 
-                  final double cardWidth =
-                      (constraints.maxWidth - (spacing * (cardsPerRow - 1))) /
-                          cardsPerRow;
+                  final double cardWidth = (constraints.maxWidth -
+                      (spacing * (cardsPerRow - 1))) /
+                      cardsPerRow;
 
                   return Wrap(
                     spacing: spacing,
@@ -220,14 +284,28 @@ class _DashboardPageState extends State<DashboardPage> {
                       SizedBox(
                         width: cardWidth,
                         child: _DashboardStatCard(
-                          title: 'Horas produtivas',
-                          value:
-                          (_summary?.totalHours ?? 0).toStringAsFixed(2),
+                          title: 'Horas concluídas',
+                          value: (_summary?.completedHours ?? 0)
+                              .toStringAsFixed(2),
                           icon: Icons.schedule_outlined,
                           backgroundColor: const Color(0xFFE7F7F5),
                           iconBackgroundColor: const Color(0xFFD0F0EC),
                           iconColor: AppColors.primaryDark,
                           valueColor: AppColors.primaryDark,
+                        ),
+                      ),
+                      SizedBox(
+                        width: cardWidth,
+                        child: _DashboardStatCard(
+                          title: 'Vlt. total das horas',
+                          value: currencyFormat.format(
+                            _summary?.totalCompletedHoursValue ?? 0,
+                          ),
+                          icon: Icons.attach_money_outlined,
+                          backgroundColor: const Color(0xFFF3E8FF),
+                          iconBackgroundColor: const Color(0xFFE7D4FF),
+                          iconColor: const Color(0xFF7B1FA2),
+                          valueColor: const Color(0xFF6A1B9A),
                         ),
                       ),
                     ],
@@ -313,7 +391,7 @@ class _DashboardStatCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               value,
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w800,

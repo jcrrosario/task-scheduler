@@ -4,12 +4,14 @@ class DashboardSummary {
     required this.pendingTasks,
     required this.inProgressTasks,
     required this.completedTasks,
-    required this.totalHours,
+    required this.completedHours,
+    required this.totalCompletedHoursValue,
   });
 
   final int totalTasks;
   final int pendingTasks;
   final int inProgressTasks;
   final int completedTasks;
-  final double totalHours;
+  final double completedHours;
+  final double totalCompletedHoursValue;
 }

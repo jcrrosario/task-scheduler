@@ -16,7 +16,8 @@ class DashboardRepository {
       years.add(item.task.date.year);
     }
 
-    final List<int> sortedYears = years.toList()..sort((a, b) => b.compareTo(a));
+    final List<int> sortedYears = years.toList()
+      ..sort((a, b) => b.compareTo(a));
 
     return sortedYears;
   }
@@ -40,7 +41,8 @@ class DashboardRepository {
     int pendingTasks = 0;
     int inProgressTasks = 0;
     int completedTasks = 0;
-    double totalHours = 0;
+    double completedHours = 0;
+    double totalCompletedHoursValue = 0;
 
     for (final item in filteredItems) {
       final String status = item.task.status.trim().toLowerCase();
@@ -51,9 +53,10 @@ class DashboardRepository {
         inProgressTasks++;
       } else if (status == 'concluído') {
         completedTasks++;
+        completedHours += item.task.hours;
+        totalCompletedHoursValue +=
+            item.task.hours * item.task.clientHourlyRateSnapshot;
       }
-
-      totalHours += item.task.hours;
     }
 
     return DashboardSummary(
@@ -61,7 +64,8 @@ class DashboardRepository {
       pendingTasks: pendingTasks,
       inProgressTasks: inProgressTasks,
       completedTasks: completedTasks,
-      totalHours: totalHours,
+      completedHours: completedHours,
+      totalCompletedHoursValue: totalCompletedHoursValue,
     );
   }
 }

@@ -6,6 +6,8 @@ class DashboardSummary {
     required this.completedTasks,
     required this.completedHours,
     required this.totalCompletedHoursValue,
+    required this.quarterLabel,
+    required this.quarterBars,
   });
 
   final int totalTasks;
@@ -14,4 +16,18 @@ class DashboardSummary {
   final int completedTasks;
   final double completedHours;
   final double totalCompletedHoursValue;
+  final String quarterLabel;
+  final List<DashboardQuarterBar> quarterBars;
+}
+
+class DashboardQuarterBar {
+  DashboardQuarterBar({
+    required this.month,
+    required this.monthLabel,
+    required this.value,
+  });
+
+  final int month;
+  final String monthLabel;
+  final double value;
 }

@@ -59,6 +59,22 @@ class DashboardRepository {
       }
     }
 
+    final DateTime now = DateTime.now();
+    final int baseYear = year ?? now.year;
+    final int baseMonth = month ?? now.month;
+
+    final _QuarterRange quarterRange = _resolveQuarterRange(
+      month: baseMonth,
+      year: baseYear,
+    );
+
+    final List<DashboardQuarterBar> quarterBars = _buildQuarterBars(
+      items: items,
+      year: quarterRange.year,
+      startMonth: quarterRange.startMonth,
+      endMonth: quarterRange.endMonth,
+    );
+
     return DashboardSummary(
       totalTasks: totalTasks,
       pendingTasks: pendingTasks,
@@ -66,6 +82,121 @@ class DashboardRepository {
       completedTasks: completedTasks,
       completedHours: completedHours,
       totalCompletedHoursValue: totalCompletedHoursValue,
+      quarterLabel: quarterRange.label,
+      quarterBars: quarterBars,
     );
   }
+
+  _QuarterRange _resolveQuarterRange({
+    required int month,
+    required int year,
+  }) {
+    if (month >= 1 && month <= 3) {
+      return _QuarterRange(
+        year: year,
+        startMonth: 1,
+        endMonth: 3,
+        label: 'Q1/$year',
+      );
+    }
+
+    if (month >= 4 && month <= 6) {
+      return _QuarterRange(
+        year: year,
+        startMonth: 4,
+        endMonth: 6,
+        label: 'Q2/$year',
+      );
+    }
+
+    if (month >= 7 && month <= 9) {
+      return _QuarterRange(
+        year: year,
+        startMonth: 7,
+        endMonth: 9,
+        label: 'Q3/$year',
+      );
+    }
+
+    return _QuarterRange(
+      year: year,
+      startMonth: 10,
+      endMonth: 12,
+      label: 'Q4/$year',
+    );
+  }
+
+  List<DashboardQuarterBar> _buildQuarterBars({
+    required List<dynamic> items,
+    required int year,
+    required int startMonth,
+    required int endMonth,
+  }) {
+    final Map<int, double> totalsByMonth = <int, double>{
+      for (int month = startMonth; month <= endMonth; month++) month: 0,
+    };
+
+    for (final item in items) {
+      final DateTime taskDate = item.task.date;
+      final String status = item.task.status.trim().toLowerCase();
+
+      if (taskDate.year != year) {
+        continue;
+      }
+
+      if (taskDate.month < startMonth || taskDate.month > endMonth) {
+        continue;
+      }
+
+      if (status != 'concluído') {
+        continue;
+      }
+
+      totalsByMonth[taskDate.month] =
+          (totalsByMonth[taskDate.month] ?? 0) +
+              (item.task.hours * item.task.clientHourlyRateSnapshot);
+    }
+
+    return <DashboardQuarterBar>[
+      for (int month = startMonth; month <= endMonth; month++)
+        DashboardQuarterBar(
+          month: month,
+          monthLabel: _monthShortLabel(month),
+          value: totalsByMonth[month] ?? 0,
+        ),
+    ];
+  }
+
+  String _monthShortLabel(int month) {
+    const Map<int, String> labels = <int, String>{
+      1: 'Jan',
+      2: 'Fev',
+      3: 'Mar',
+      4: 'Abr',
+      5: 'Mai',
+      6: 'Jun',
+      7: 'Jul',
+      8: 'Ago',
+      9: 'Set',
+      10: 'Out',
+      11: 'Nov',
+      12: 'Dez',
+    };
+
+    return labels[month] ?? '';
+  }
+}
+
+class _QuarterRange {
+  _QuarterRange({
+    required this.year,
+    required this.startMonth,
+    required this.endMonth,
+    required this.label,
+  });
+
+  final int year;
+  final int startMonth;
+  final int endMonth;
+  final String label;
 }

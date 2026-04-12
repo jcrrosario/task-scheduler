@@ -22,7 +22,6 @@ class _ConsultancyPageState extends State<ConsultancyPage> {
   final TextEditingController _stateRegistrationController =
   TextEditingController();
   final TextEditingController _addressController = TextEditingController();
-  final TextEditingController _hourlyRateController = TextEditingController();
   final TextEditingController _accessPasswordController =
   TextEditingController();
 
@@ -44,7 +43,6 @@ class _ConsultancyPageState extends State<ConsultancyPage> {
     _cnpjController.dispose();
     _stateRegistrationController.dispose();
     _addressController.dispose();
-    _hourlyRateController.dispose();
     _accessPasswordController.dispose();
     super.dispose();
   }
@@ -59,12 +57,10 @@ class _ConsultancyPageState extends State<ConsultancyPage> {
       _cnpjController.text = consultancy.cnpj ?? '';
       _stateRegistrationController.text = consultancy.stateRegistration ?? '';
       _addressController.text = consultancy.address ?? '';
-      _hourlyRateController.text = consultancy.hourlyRate.toStringAsFixed(2);
       _accessPasswordController.text =
           consultancy.accessPassword ?? AppStrings.defaultPassword;
     } else {
       _accessPasswordController.text = AppStrings.defaultPassword;
-      _hourlyRateController.text = '0.00';
     }
 
     if (!mounted) {
@@ -87,11 +83,6 @@ class _ConsultancyPageState extends State<ConsultancyPage> {
       _isSaving = true;
     });
 
-    final double hourlyRate = double.tryParse(
-      _hourlyRateController.text.replaceAll(',', '.').trim(),
-    ) ??
-        0;
-
     final String password = _accessPasswordController.text.trim().isEmpty
         ? AppStrings.defaultPassword
         : _accessPasswordController.text.trim();
@@ -103,7 +94,7 @@ class _ConsultancyPageState extends State<ConsultancyPage> {
       cnpj: _cnpjController.text,
       stateRegistration: _stateRegistrationController.text,
       address: _addressController.text,
-      hourlyRate: hourlyRate,
+      hourlyRate: 0,
       accessPassword: password,
     );
 
@@ -205,17 +196,6 @@ class _ConsultancyPageState extends State<ConsultancyPage> {
                           decoration: const InputDecoration(
                             labelText: 'Endereço',
                             hintText: 'Digite o endereço',
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _hourlyRateController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          decoration: const InputDecoration(
-                            labelText: 'Valor da Hora',
-                            hintText: 'Digite o valor da hora',
                           ),
                         ),
                         const SizedBox(height: 16),

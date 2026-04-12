@@ -312,6 +312,13 @@ class _DashboardPageState extends State<DashboardPage> {
                   );
                 },
               ),
+              const SizedBox(height: 20),
+              _QuarterFinancialChart(
+                title: 'Evolução financeira',
+                subtitle:
+                'Quarter de referência: ${_summary?.quarterLabel ?? '-'}',
+                bars: _summary?.quarterBars ?? <DashboardQuarterBar>[],
+              ),
             ],
           ),
         ),
@@ -402,5 +409,141 @@ class _DashboardStatCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _QuarterFinancialChart extends StatelessWidget {
+  const _QuarterFinancialChart({
+    required this.title,
+    required this.subtitle,
+    required this.bars,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<DashboardQuarterBar> bars;
+
+  @override
+  Widget build(BuildContext context) {
+    final double maxValue = _resolveMaxValue();
+    final NumberFormat exactCurrency = NumberFormat.currency(
+      locale: 'pt_BR',
+      symbol: 'R\$',
+      decimalDigits: 2,
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: Colors.black.withAlpha(10),
+        ),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 220,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: bars.map((DashboardQuarterBar bar) {
+                  final double heightFactor =
+                  maxValue == 0 ? 0 : (bar.value / maxValue);
+
+                  return Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: <Widget>[
+                          Text(
+                            exactCurrency.format(bar.value),
+                            textAlign: TextAlign.center,
+                            style:
+                            Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            height: 150,
+                            alignment: Alignment.bottomCenter,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeOut,
+                              height: heightFactor == 0
+                                  ? 8
+                                  : (150 * heightFactor).clamp(8, 150),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: <Color>[
+                                    Color(0xFF8E24AA),
+                                    Color(0xFF5E35B1),
+                                  ],
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            bar.monthLabel,
+                            style:
+                            Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  double _resolveMaxValue() {
+    if (bars.isEmpty) {
+      return 0;
+    }
+
+    double maxValue = 0;
+
+    for (final DashboardQuarterBar bar in bars) {
+      if (bar.value > maxValue) {
+        maxValue = bar.value;
+      }
+    }
+
+    return maxValue;
   }
 }

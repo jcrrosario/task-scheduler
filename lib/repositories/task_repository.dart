@@ -47,10 +47,12 @@ class TaskRepository {
         normalizedSearch,
       ) ||
           item.clientName.toLowerCase().contains(normalizedSearch) ||
-          (item.task.requester ?? '').toLowerCase().contains(normalizedSearch) ||
-          (item.task.description ?? '')
-              .toLowerCase()
-              .contains(normalizedSearch);
+          (item.task.requester ?? '').toLowerCase().contains(
+            normalizedSearch,
+          ) ||
+          (item.task.description ?? '').toLowerCase().contains(
+            normalizedSearch,
+          );
 
       return matchesClient && matchesStatus && matchesSearch;
     }).toList();
@@ -145,7 +147,7 @@ class TaskRepository {
       existingCompletedAt: existingTask?.completedAt,
     );
 
-    final rows = await (_database.update(_database.tasks)
+    final int rows = await (_database.update(_database.tasks)
       ..where((table) => table.id.equals(id)))
         .write(
       TasksCompanion(
@@ -167,7 +169,7 @@ class TaskRepository {
   }
 
   Future<bool> delete(int id) async {
-    final rows = await (_database.delete(_database.tasks)
+    final int rows = await (_database.delete(_database.tasks)
       ..where((table) => table.id.equals(id)))
         .go();
 

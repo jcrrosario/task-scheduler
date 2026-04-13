@@ -24,6 +24,8 @@ class _TasksPageState extends State<TasksPage> {
 
   bool _isLoading = true;
   bool _showFilters = false;
+  bool _showSearch = false;
+
   int? _selectedClientId;
   String? _selectedStatus;
 
@@ -49,11 +51,20 @@ class _TasksPageState extends State<TasksPage> {
     });
 
     final List<Client> clients = await _clientRepository.getAll();
-    final List<TaskListItem> tasks = await _taskRepository.getAll(
+    final List<TaskListItem> repositoryTasks = await _taskRepository.getAll(
       search: _searchController.text,
       clientId: _selectedClientId,
       status: _selectedStatus,
     );
+
+    final List<TaskListItem> visibleTasks = _selectedStatus == null
+        ? repositoryTasks.where((TaskListItem item) {
+      final String normalizedStatus = item.task.status.trim().toLowerCase();
+
+      return normalizedStatus == 'pendente' ||
+          normalizedStatus == 'em andamento';
+    }).toList()
+        : repositoryTasks;
 
     if (!mounted) {
       return;
@@ -61,7 +72,7 @@ class _TasksPageState extends State<TasksPage> {
 
     setState(() {
       _clients = clients;
-      _tasks = tasks;
+      _tasks = visibleTasks;
       _isLoading = false;
     });
   }
@@ -91,6 +102,18 @@ class _TasksPageState extends State<TasksPage> {
     );
 
     if (saved == true) {
+      await _loadData();
+    }
+  }
+
+  Future<void> _openConcludePage(TaskListItem item) async {
+    final bool? updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => TaskExecutionPage(taskItem: item),
+      ),
+    );
+
+    if (updated == true) {
       await _loadData();
     }
   }
@@ -146,6 +169,18 @@ class _TasksPageState extends State<TasksPage> {
     await _loadData();
   }
 
+  void _toggleSearch() {
+    final bool nextValue = !_showSearch;
+
+    setState(() {
+      _showSearch = nextValue;
+    });
+
+    if (!nextValue && _searchController.text.isNotEmpty) {
+      _searchController.clear();
+    }
+  }
+
   bool get _hasActiveFilters {
     return _selectedClientId != null || _selectedStatus != null;
   }
@@ -159,47 +194,48 @@ class _TasksPageState extends State<TasksPage> {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: <Widget>[
-              _TasksHeader(
-                totalTasks: _tasks.length,
-                onAddPressed: () => _openForm(),
-              ),
+              _TasksHeader(totalTasks: _tasks.length),
               const SizedBox(height: 16),
-              TextField(
-                controller: _searchController,
-                decoration: const InputDecoration(
-                  hintText: 'Buscar por título, cliente, solicitante...',
-                  prefixIcon: Icon(Icons.search),
-                ),
-              ),
-              const SizedBox(height: 12),
               Row(
                 children: <Widget>[
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _showFilters = !_showFilters;
-                        });
-                      },
-                      icon: Icon(
-                        _showFilters
-                            ? Icons.filter_alt_off_outlined
-                            : Icons.filter_alt_outlined,
-                      ),
-                      label: Text(
-                        _showFilters ? 'Ocultar filtros' : 'Mostrar filtros',
-                      ),
-                    ),
+                  _HeaderIconButton(
+                    tooltip: 'Nova tarefa',
+                    icon: Icons.add,
+                    onPressed: () => _openForm(),
+                    isFilled: true,
                   ),
-                  if (_hasActiveFilters) ...<Widget>[
-                    const SizedBox(width: 12),
-                    OutlinedButton(
-                      onPressed: _clearFilters,
-                      child: const Text('Limpar'),
-                    ),
-                  ],
+                  const SizedBox(width: 8),
+                  _HeaderIconButton(
+                    tooltip: _showSearch ? 'Ocultar pesquisa' : 'Pesquisar',
+                    icon: _showSearch
+                        ? Icons.search_off_outlined
+                        : Icons.search_outlined,
+                    onPressed: _toggleSearch,
+                  ),
+                  const SizedBox(width: 8),
+                  _HeaderIconButton(
+                    tooltip: _showFilters ? 'Ocultar filtros' : 'Filtros',
+                    icon: _showFilters
+                        ? Icons.filter_alt_off_outlined
+                        : Icons.filter_alt_outlined,
+                    onPressed: () {
+                      setState(() {
+                        _showFilters = !_showFilters;
+                      });
+                    },
+                  ),
                 ],
               ),
+              if (_showSearch) ...<Widget>[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _searchController,
+                  decoration: const InputDecoration(
+                    hintText: 'Buscar por título, cliente, solicitante...',
+                    prefixIcon: Icon(Icons.search),
+                  ),
+                ),
+              ],
               AnimatedCrossFade(
                 firstChild: const SizedBox.shrink(),
                 secondChild: Padding(
@@ -261,6 +297,16 @@ class _TasksPageState extends State<TasksPage> {
                           await _loadData();
                         },
                       ),
+                      if (_hasActiveFilters) ...<Widget>[
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: OutlinedButton(
+                            onPressed: _clearFilters,
+                            child: const Text('Limpar filtros'),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -286,6 +332,7 @@ class _TasksPageState extends State<TasksPage> {
                       item: item,
                       onEdit: () => _openForm(item: item),
                       onDelete: () => _deleteTask(item),
+                      onConclude: () => _openConcludePage(item),
                     );
                   },
                 ),
@@ -301,42 +348,71 @@ class _TasksPageState extends State<TasksPage> {
 class _TasksHeader extends StatelessWidget {
   const _TasksHeader({
     required this.totalTasks,
-    required this.onAddPressed,
   });
 
   final int totalTasks;
-  final VoidCallback onAddPressed;
 
   @override
   Widget build(BuildContext context) {
     final TextTheme textTheme = Theme.of(context).textTheme;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          'Tarefas',
-          style: textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        'Tarefas - $totalTasks cadastradas',
+        style: textTheme.headlineSmall?.copyWith(
+          fontWeight: FontWeight.w700,
         ),
-        const SizedBox(height: 6),
-        Text(
-          '$totalTasks cadastradas',
-          style: textTheme.bodyLarge?.copyWith(
-            color: AppColors.textSecondary,
+      ),
+    );
+  }
+}
+
+class _HeaderIconButton extends StatelessWidget {
+  const _HeaderIconButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.isFilled = false,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final bool isFilled;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colorScheme = Theme.of(context).colorScheme;
+
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox(
+        width: 52,
+        height: 52,
+        child: isFilled
+            ? FilledButton(
+          onPressed: onPressed,
+          style: FilledButton.styleFrom(
+            padding: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          width: 170,
-          child: FilledButton.icon(
-            onPressed: onAddPressed,
-            icon: const Icon(Icons.add),
-            label: const Text('Nova Tarefa'),
+          child: Icon(icon, size: 22),
+        )
+            : OutlinedButton(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            padding: EdgeInsets.zero,
+            side: BorderSide(color: colorScheme.outlineVariant),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
           ),
+          child: Icon(icon, size: 22),
         ),
-      ],
+      ),
     );
   }
 }
@@ -346,11 +422,13 @@ class _TaskCard extends StatelessWidget {
     required this.item,
     required this.onEdit,
     required this.onDelete,
+    required this.onConclude,
   });
 
   final TaskListItem item;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onConclude;
 
   Color _getCardBackgroundColor() {
     final String status = item.task.status.trim().toLowerCase();
@@ -405,60 +483,72 @@ class _TaskCard extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
-        child: Row(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    item.task.title,
-                    style: textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Data/Hora: ${dateFormat.format(item.task.date)} às ${item.task.time}',
-                    style: textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withAlpha(170),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      item.task.status,
-                      style: textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: statusColor,
+            Text(
+              item.task.title,
+              style: textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Data/Hora: ${dateFormat.format(item.task.date)} às ${item.task.time}',
+              style: textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withAlpha(170),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        item.task.status,
+                        style: textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: statusColor,
+                        ),
                       ),
                     ),
                   ),
-                ],
-              ),
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                IconButton(
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit_outlined),
-                  tooltip: 'Editar',
                 ),
-                IconButton(
-                  onPressed: onDelete,
-                  icon: const Icon(
-                    Icons.delete_outline,
-                    color: AppColors.error,
+                const SizedBox(width: 8),
+                Tooltip(
+                  message: 'Editar',
+                  child: IconButton(
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_outlined),
+                    visualDensity: VisualDensity.compact,
                   ),
-                  tooltip: 'Excluir',
+                ),
+                Tooltip(
+                  message: 'Concluir',
+                  child: IconButton(
+                    onPressed: onConclude,
+                    icon: const Icon(Icons.check_circle_outline),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+                Tooltip(
+                  message: 'Excluir',
+                  child: IconButton(
+                    onPressed: onDelete,
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: AppColors.error,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
                 ),
               ],
             ),
@@ -496,7 +586,7 @@ class _EmptyTasksState extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Clique em "Nova Tarefa" para começar.',
+              'Clique em "Nova tarefa" para começar.',
               textAlign: TextAlign.center,
               style: textTheme.bodyMedium,
             ),
@@ -528,15 +618,10 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
   late final TextEditingController _titleController;
   late final TextEditingController _requesterController;
   late final TextEditingController _descriptionController;
-  late final TextEditingController _doneDescriptionController;
-  late final TextEditingController _dateController;
-  late final TextEditingController _timeController;
-  late final TextEditingController _hoursController;
 
   late DateTime _selectedDate;
   late String _selectedTime;
   late int _selectedClientId;
-  late String _selectedStatus;
 
   bool _isSaving = false;
 
@@ -553,21 +638,11 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
     _selectedTime = task?.time ??
         '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
     _selectedClientId = task?.clientId ?? widget.clients.first.id;
-    _selectedStatus = task?.status ?? 'Pendente';
 
     _titleController = TextEditingController(text: task?.title ?? '');
     _requesterController = TextEditingController(text: task?.requester ?? '');
     _descriptionController =
         TextEditingController(text: task?.description ?? '');
-    _doneDescriptionController =
-        TextEditingController(text: task?.doneDescription ?? '');
-    _dateController = TextEditingController(
-      text: DateFormat('dd/MM/yyyy').format(_selectedDate),
-    );
-    _timeController = TextEditingController(text: _selectedTime);
-    _hoursController = TextEditingController(
-      text: (task?.hours ?? 0).toStringAsFixed(2),
-    );
   }
 
   @override
@@ -575,56 +650,7 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
     _titleController.dispose();
     _requesterController.dispose();
     _descriptionController.dispose();
-    _doneDescriptionController.dispose();
-    _dateController.dispose();
-    _timeController.dispose();
-    _hoursController.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickDate() async {
-    final DateTime now = DateTime.now();
-
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(now.year - 5),
-      lastDate: DateTime(now.year + 10),
-    );
-
-    if (picked == null) {
-      return;
-    }
-
-    setState(() {
-      _selectedDate = picked;
-      _dateController.text = DateFormat('dd/MM/yyyy').format(picked);
-    });
-  }
-
-  Future<void> _pickTime() async {
-    final List<String> parts = _selectedTime.split(':');
-    final TimeOfDay initialTime = TimeOfDay(
-      hour: int.tryParse(parts.first) ?? 8,
-      minute: int.tryParse(parts.last) ?? 0,
-    );
-
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: initialTime,
-    );
-
-    if (picked == null) {
-      return;
-    }
-
-    final String formatted =
-        '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-
-    setState(() {
-      _selectedTime = formatted;
-      _timeController.text = formatted;
-    });
   }
 
   Future<void> _save() async {
@@ -638,11 +664,6 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
       _isSaving = true;
     });
 
-    final double hours = double.tryParse(
-      _hoursController.text.replaceAll(',', '.').trim(),
-    ) ??
-        0;
-
     if (_isEditing) {
       await _repository.update(
         id: widget.taskItem!.task.id,
@@ -652,9 +673,9 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
         time: _selectedTime,
         requester: _requesterController.text,
         description: _descriptionController.text,
-        doneDescription: _doneDescriptionController.text,
-        hours: hours,
-        status: _selectedStatus,
+        doneDescription: widget.taskItem!.task.doneDescription,
+        hours: widget.taskItem!.task.hours,
+        status: widget.taskItem!.task.status,
       );
     } else {
       await _repository.create(
@@ -664,9 +685,9 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
         time: _selectedTime,
         requester: _requesterController.text,
         description: _descriptionController.text,
-        doneDescription: _doneDescriptionController.text,
-        hours: hours,
-        status: _selectedStatus,
+        doneDescription: null,
+        hours: 0,
+        status: 'Pendente',
       );
     }
 
@@ -737,48 +758,6 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
                       });
                     },
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: TextFormField(
-                          controller: _dateController,
-                          readOnly: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Data *',
-                            hintText: 'Selecione a data',
-                            suffixIcon: Icon(Icons.calendar_today_outlined),
-                          ),
-                          onTap: _pickDate,
-                          validator: (String? value) {
-                            if ((value ?? '').trim().isEmpty) {
-                              return 'Informe a data.';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _timeController,
-                          readOnly: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Hora *',
-                            hintText: 'Selecione a hora',
-                            suffixIcon: Icon(Icons.access_time_outlined),
-                          ),
-                          onTap: _pickTime,
-                          validator: (String? value) {
-                            if ((value ?? '').trim().isEmpty) {
-                              return 'Informe a hora.';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: 20),
                   Container(
                     width: double.infinity,
@@ -844,91 +823,6 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: AppColors.border,
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            'Execução da tarefa',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Preencha as informações de andamento e conclusão.',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _doneDescriptionController,
-                            maxLines: 3,
-                            decoration: const InputDecoration(
-                              labelText: 'O que foi feito',
-                              hintText: 'Descreva o que foi feito',
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _hoursController,
-                            keyboardType:
-                            const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            decoration: const InputDecoration(
-                              labelText: 'Horas trabalhadas',
-                              hintText: 'Digite as horas trabalhadas',
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          DropdownButtonFormField<String>(
-                            initialValue: _selectedStatus,
-                            decoration: const InputDecoration(
-                              labelText: 'Status',
-                            ),
-                            items: const <DropdownMenuItem<String>>[
-                              DropdownMenuItem<String>(
-                                value: 'Pendente',
-                                child: Text('Pendente'),
-                              ),
-                              DropdownMenuItem<String>(
-                                value: 'Em andamento',
-                                child: Text('Em andamento'),
-                              ),
-                              DropdownMenuItem<String>(
-                                value: 'Concluído',
-                                child: Text('Concluído'),
-                              ),
-                            ],
-                            onChanged: (String? value) {
-                              if (value == null) {
-                                return;
-                              }
-
-                              setState(() {
-                                _selectedStatus = value;
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
@@ -949,6 +843,225 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
                   ),
                 ],
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class TaskExecutionPage extends StatefulWidget {
+  const TaskExecutionPage({
+    required this.taskItem,
+    super.key,
+  });
+
+  final TaskListItem taskItem;
+
+  @override
+  State<TaskExecutionPage> createState() => _TaskExecutionPageState();
+}
+
+class _TaskExecutionPageState extends State<TaskExecutionPage> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TaskRepository _repository = TaskRepository();
+
+  late final TextEditingController _doneDescriptionController;
+  late final TextEditingController _hoursController;
+
+  late String _selectedStatus;
+
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final Task task = widget.taskItem.task;
+
+    _doneDescriptionController = TextEditingController(
+      text: task.doneDescription ?? '',
+    );
+
+    _hoursController = TextEditingController(
+      text: task.hours > 0 ? task.hours.toStringAsFixed(2) : '',
+    );
+
+    _selectedStatus = task.status;
+  }
+
+  @override
+  void dispose() {
+    _doneDescriptionController.dispose();
+    _hoursController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveExecution() async {
+    final bool isValid = _formKey.currentState?.validate() ?? false;
+
+    if (!isValid) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    final Task task = widget.taskItem.task;
+
+    final double hours = double.tryParse(
+      _hoursController.text.replaceAll(',', '.').trim(),
+    ) ??
+        0;
+
+    await _repository.update(
+      id: task.id,
+      clientId: task.clientId,
+      title: task.title,
+      date: task.date,
+      time: task.time,
+      requester: task.requester,
+      description: task.description,
+      doneDescription: _doneDescriptionController.text,
+      hours: hours,
+      status: _selectedStatus,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Execução da tarefa atualizada com sucesso.'),
+      ),
+    );
+
+    Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Task task = widget.taskItem.task;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Concluir tarefa'),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: <Widget>[
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: AppColors.border,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          task.title,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Cliente: ${widget.taskItem.clientName}',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Preencha os dados de execução da tarefa.',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 20),
+                        TextFormField(
+                          controller: _doneDescriptionController,
+                          maxLines: 4,
+                          decoration: const InputDecoration(
+                            labelText: 'O que foi feito',
+                            hintText: 'Descreva o que foi realizado',
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _hoursController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration: const InputDecoration(
+                            labelText: 'Horas trabalhadas',
+                            hintText: 'Digite as horas trabalhadas',
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          initialValue: _selectedStatus,
+                          decoration: const InputDecoration(
+                            labelText: 'Status *',
+                          ),
+                          items: const <DropdownMenuItem<String>>[
+                            DropdownMenuItem<String>(
+                              value: 'Pendente',
+                              child: Text('Pendente'),
+                            ),
+                            DropdownMenuItem<String>(
+                              value: 'Em andamento',
+                              child: Text('Em andamento'),
+                            ),
+                            DropdownMenuItem<String>(
+                              value: 'Concluído',
+                              child: Text('Concluído'),
+                            ),
+                          ],
+                          onChanged: (String? value) {
+                            if (value == null) {
+                              return;
+                            }
+
+                            setState(() {
+                              _selectedStatus = value;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _isSaving ? null : _saveExecution,
+                    icon: const Icon(Icons.save_outlined),
+                    label: Text(_isSaving ? 'Salvando...' : 'Salvar'),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: _isSaving
+                        ? null
+                        : () => Navigator.of(context).pop(false),
+                    child: const Text('Cancelar'),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

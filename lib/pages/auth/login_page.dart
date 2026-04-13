@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:task_scheduler/core/constants/app_colors.dart';
 import 'package:task_scheduler/core/constants/app_strings.dart';
-import 'package:task_scheduler/pages/dashboard/dashboard_page.dart';
+import 'package:task_scheduler/pages/tasks/tasks_page.dart'; // ✅ ALTERADO
 import 'package:task_scheduler/services/auth_service.dart';
 import 'package:task_scheduler/widgets/app_primary_button.dart';
 import 'package:task_scheduler/widgets/app_text_field.dart';
 
+/// Tela de Login do sistema
+/// Responsável por autenticar o usuário e redirecionar para a aplicação
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -14,21 +16,28 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  /// Chave do formulário
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  /// Serviço de autenticação
   final AuthService _authService = AuthService();
 
+  /// Controllers
   late final TextEditingController _usernameController;
   late final TextEditingController _passwordController;
 
+  /// Controle de UI
   bool _obscurePassword = true;
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
+
     _usernameController = TextEditingController(
       text: AppStrings.defaultUsername,
     );
+
     _passwordController = TextEditingController();
   }
 
@@ -39,8 +48,10 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
+  /// Método responsável por validar login e redirecionar
   Future<void> _submit() async {
     final bool isValid = _formKey.currentState?.validate() ?? false;
+
     if (!isValid) {
       return;
     }
@@ -58,9 +69,7 @@ class _LoginPageState extends State<LoginPage> {
       password: password,
     );
 
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     setState(() {
       _isLoading = false;
@@ -75,9 +84,11 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
+    /// ✅ ALTERAÇÃO PRINCIPAL:
+    /// Redireciona para a tela de Tarefas ao invés do Dashboard
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
-        builder: (_) => const DashboardPage(),
+        builder: (_) => const TasksPage(),
       ),
     );
   }
@@ -115,6 +126,7 @@ class _LoginPageState extends State<LoginPage> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
+                          /// Ícone do App
                           Container(
                             width: 76,
                             height: 76,
@@ -135,14 +147,20 @@ class _LoginPageState extends State<LoginPage> {
                               size: 36,
                             ),
                           ),
+
                           const SizedBox(height: 20),
+
+                          /// Nome do App
                           Text(
                             AppStrings.appName,
                             style: textTheme.headlineMedium?.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
                           ),
+
                           const SizedBox(height: 8),
+
+                          /// Subtítulo
                           Text(
                             AppStrings.appSubtitle,
                             textAlign: TextAlign.center,
@@ -150,7 +168,10 @@ class _LoginPageState extends State<LoginPage> {
                               color: AppColors.textSecondary,
                             ),
                           ),
+
                           const SizedBox(height: 32),
+
+                          /// Título Login
                           Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
@@ -162,13 +183,19 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                           ),
+
                           const SizedBox(height: 10),
+
+                          /// Campo Usuário
                           AppTextField(
                             controller: _usernameController,
                             hintText: AppStrings.defaultUsername,
                             readOnly: true,
                           ),
+
                           const SizedBox(height: 20),
+
+                          /// Label Senha
                           Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
@@ -180,7 +207,10 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                           ),
+
                           const SizedBox(height: 10),
+
+                          /// Campo Senha
                           AppTextField(
                             controller: _passwordController,
                             hintText: AppStrings.passwordHint,
@@ -202,7 +232,10 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                           ),
+
                           const SizedBox(height: 24),
+
+                          /// Botão Login
                           AppPrimaryButton(
                             label: _isLoading
                                 ? 'Entrando...'
@@ -210,7 +243,10 @@ class _LoginPageState extends State<LoginPage> {
                             icon: Icons.lock_outline_rounded,
                             onPressed: _isLoading ? null : _submit,
                           ),
+
                           const SizedBox(height: 24),
+
+                          /// Rodapé
                           Text(
                             '© 2026 Serenyo Tecnologia Ltda.',
                             textAlign: TextAlign.center,

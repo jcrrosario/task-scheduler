@@ -48,6 +48,8 @@ class Tasks extends Table {
       real().withDefault(const Constant(0))();
 
   DateTimeColumn get completedAt => dateTime().nullable()();
+
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
 }
 
 class Consultancies extends Table {
@@ -81,7 +83,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -109,6 +111,34 @@ class AppDatabase extends _$AppDatabase {
           tasks,
           tasks.completedAt,
         );
+      }
+
+      if (from < 6) {
+        await migrator.addColumn(
+          tasks,
+          tasks.sortOrder,
+        );
+
+        final List<QueryRow> existingTasks = await customSelect(
+          '''
+              SELECT id
+              FROM tasks
+              ORDER BY date ASC, time ASC, id ASC
+              ''',
+        ).get();
+
+        for (int index = 0; index < existingTasks.length; index++) {
+          final int taskId = existingTasks[index].read<int>('id');
+
+          await customStatement(
+            '''
+                UPDATE tasks
+                SET sort_order = ?
+                WHERE id = ?
+                ''',
+            <Object>[index + 1, taskId],
+          );
+        }
       }
     },
   );

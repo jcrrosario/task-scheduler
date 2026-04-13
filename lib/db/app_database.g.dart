@@ -575,6 +575,18 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -589,6 +601,7 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
     status,
     clientHourlyRateSnapshot,
     completedAt,
+    sortOrder,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -691,6 +704,12 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         ),
       );
     }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    }
     return context;
   }
 
@@ -748,6 +767,10 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}completed_at'],
       ),
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      )!,
     );
   }
 
@@ -770,6 +793,7 @@ class Task extends DataClass implements Insertable<Task> {
   final String status;
   final double clientHourlyRateSnapshot;
   final DateTime? completedAt;
+  final int sortOrder;
   const Task({
     required this.id,
     required this.clientId,
@@ -783,6 +807,7 @@ class Task extends DataClass implements Insertable<Task> {
     required this.status,
     required this.clientHourlyRateSnapshot,
     this.completedAt,
+    required this.sortOrder,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -809,6 +834,7 @@ class Task extends DataClass implements Insertable<Task> {
     if (!nullToAbsent || completedAt != null) {
       map['completed_at'] = Variable<DateTime>(completedAt);
     }
+    map['sort_order'] = Variable<int>(sortOrder);
     return map;
   }
 
@@ -834,6 +860,7 @@ class Task extends DataClass implements Insertable<Task> {
       completedAt: completedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(completedAt),
+      sortOrder: Value(sortOrder),
     );
   }
 
@@ -857,6 +884,7 @@ class Task extends DataClass implements Insertable<Task> {
         json['clientHourlyRateSnapshot'],
       ),
       completedAt: serializer.fromJson<DateTime?>(json['completedAt']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
     );
   }
   @override
@@ -877,6 +905,7 @@ class Task extends DataClass implements Insertable<Task> {
         clientHourlyRateSnapshot,
       ),
       'completedAt': serializer.toJson<DateTime?>(completedAt),
+      'sortOrder': serializer.toJson<int>(sortOrder),
     };
   }
 
@@ -893,6 +922,7 @@ class Task extends DataClass implements Insertable<Task> {
     String? status,
     double? clientHourlyRateSnapshot,
     Value<DateTime?> completedAt = const Value.absent(),
+    int? sortOrder,
   }) => Task(
     id: id ?? this.id,
     clientId: clientId ?? this.clientId,
@@ -909,6 +939,7 @@ class Task extends DataClass implements Insertable<Task> {
     clientHourlyRateSnapshot:
         clientHourlyRateSnapshot ?? this.clientHourlyRateSnapshot,
     completedAt: completedAt.present ? completedAt.value : this.completedAt,
+    sortOrder: sortOrder ?? this.sortOrder,
   );
   Task copyWithCompanion(TasksCompanion data) {
     return Task(
@@ -932,6 +963,7 @@ class Task extends DataClass implements Insertable<Task> {
       completedAt: data.completedAt.present
           ? data.completedAt.value
           : this.completedAt,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
     );
   }
 
@@ -949,7 +981,8 @@ class Task extends DataClass implements Insertable<Task> {
           ..write('hours: $hours, ')
           ..write('status: $status, ')
           ..write('clientHourlyRateSnapshot: $clientHourlyRateSnapshot, ')
-          ..write('completedAt: $completedAt')
+          ..write('completedAt: $completedAt, ')
+          ..write('sortOrder: $sortOrder')
           ..write(')'))
         .toString();
   }
@@ -968,6 +1001,7 @@ class Task extends DataClass implements Insertable<Task> {
     status,
     clientHourlyRateSnapshot,
     completedAt,
+    sortOrder,
   );
   @override
   bool operator ==(Object other) =>
@@ -984,7 +1018,8 @@ class Task extends DataClass implements Insertable<Task> {
           other.hours == this.hours &&
           other.status == this.status &&
           other.clientHourlyRateSnapshot == this.clientHourlyRateSnapshot &&
-          other.completedAt == this.completedAt);
+          other.completedAt == this.completedAt &&
+          other.sortOrder == this.sortOrder);
 }
 
 class TasksCompanion extends UpdateCompanion<Task> {
@@ -1000,6 +1035,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
   final Value<String> status;
   final Value<double> clientHourlyRateSnapshot;
   final Value<DateTime?> completedAt;
+  final Value<int> sortOrder;
   const TasksCompanion({
     this.id = const Value.absent(),
     this.clientId = const Value.absent(),
@@ -1013,6 +1049,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.status = const Value.absent(),
     this.clientHourlyRateSnapshot = const Value.absent(),
     this.completedAt = const Value.absent(),
+    this.sortOrder = const Value.absent(),
   });
   TasksCompanion.insert({
     this.id = const Value.absent(),
@@ -1027,6 +1064,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.status = const Value.absent(),
     this.clientHourlyRateSnapshot = const Value.absent(),
     this.completedAt = const Value.absent(),
+    this.sortOrder = const Value.absent(),
   }) : clientId = Value(clientId),
        title = Value(title),
        date = Value(date),
@@ -1044,6 +1082,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     Expression<String>? status,
     Expression<double>? clientHourlyRateSnapshot,
     Expression<DateTime>? completedAt,
+    Expression<int>? sortOrder,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1059,6 +1098,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
       if (clientHourlyRateSnapshot != null)
         'client_hourly_rate_snapshot': clientHourlyRateSnapshot,
       if (completedAt != null) 'completed_at': completedAt,
+      if (sortOrder != null) 'sort_order': sortOrder,
     });
   }
 
@@ -1075,6 +1115,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     Value<String>? status,
     Value<double>? clientHourlyRateSnapshot,
     Value<DateTime?>? completedAt,
+    Value<int>? sortOrder,
   }) {
     return TasksCompanion(
       id: id ?? this.id,
@@ -1090,6 +1131,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
       clientHourlyRateSnapshot:
           clientHourlyRateSnapshot ?? this.clientHourlyRateSnapshot,
       completedAt: completedAt ?? this.completedAt,
+      sortOrder: sortOrder ?? this.sortOrder,
     );
   }
 
@@ -1134,6 +1176,9 @@ class TasksCompanion extends UpdateCompanion<Task> {
     if (completedAt.present) {
       map['completed_at'] = Variable<DateTime>(completedAt.value);
     }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
     return map;
   }
 
@@ -1151,7 +1196,8 @@ class TasksCompanion extends UpdateCompanion<Task> {
           ..write('hours: $hours, ')
           ..write('status: $status, ')
           ..write('clientHourlyRateSnapshot: $clientHourlyRateSnapshot, ')
-          ..write('completedAt: $completedAt')
+          ..write('completedAt: $completedAt, ')
+          ..write('sortOrder: $sortOrder')
           ..write(')'))
         .toString();
   }
@@ -1979,6 +2025,7 @@ typedef $$TasksTableCreateCompanionBuilder =
       Value<String> status,
       Value<double> clientHourlyRateSnapshot,
       Value<DateTime?> completedAt,
+      Value<int> sortOrder,
     });
 typedef $$TasksTableUpdateCompanionBuilder =
     TasksCompanion Function({
@@ -1994,6 +2041,7 @@ typedef $$TasksTableUpdateCompanionBuilder =
       Value<String> status,
       Value<double> clientHourlyRateSnapshot,
       Value<DateTime?> completedAt,
+      Value<int> sortOrder,
     });
 
 class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
@@ -2061,6 +2109,11 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
 
   ColumnFilters<DateTime> get completedAt => $composableBuilder(
     column: $table.completedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -2133,6 +2186,11 @@ class $$TasksTableOrderingComposer
     column: $table.completedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TasksTableAnnotationComposer
@@ -2187,6 +2245,9 @@ class $$TasksTableAnnotationComposer
     column: $table.completedAt,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
 }
 
 class $$TasksTableTableManager
@@ -2229,6 +2290,7 @@ class $$TasksTableTableManager
                 Value<String> status = const Value.absent(),
                 Value<double> clientHourlyRateSnapshot = const Value.absent(),
                 Value<DateTime?> completedAt = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
               }) => TasksCompanion(
                 id: id,
                 clientId: clientId,
@@ -2242,6 +2304,7 @@ class $$TasksTableTableManager
                 status: status,
                 clientHourlyRateSnapshot: clientHourlyRateSnapshot,
                 completedAt: completedAt,
+                sortOrder: sortOrder,
               ),
           createCompanionCallback:
               ({
@@ -2257,6 +2320,7 @@ class $$TasksTableTableManager
                 Value<String> status = const Value.absent(),
                 Value<double> clientHourlyRateSnapshot = const Value.absent(),
                 Value<DateTime?> completedAt = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
               }) => TasksCompanion.insert(
                 id: id,
                 clientId: clientId,
@@ -2270,6 +2334,7 @@ class $$TasksTableTableManager
                 status: status,
                 clientHourlyRateSnapshot: clientHourlyRateSnapshot,
                 completedAt: completedAt,
+                sortOrder: sortOrder,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

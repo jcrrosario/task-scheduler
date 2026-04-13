@@ -58,12 +58,9 @@ class TaskRepository {
     }).toList();
 
     items.sort((TaskListItem a, TaskListItem b) {
-      final int clientCompare = a.clientName.toLowerCase().compareTo(
-        b.clientName.toLowerCase(),
-      );
-
-      if (clientCompare != 0) {
-        return clientCompare;
+      final int sortOrderCompare = a.task.sortOrder.compareTo(b.task.sortOrder);
+      if (sortOrderCompare != 0) {
+        return sortOrderCompare;
       }
 
       final int dateCompare = a.task.date.compareTo(b.task.date);
@@ -71,7 +68,12 @@ class TaskRepository {
         return dateCompare;
       }
 
-      return a.task.time.compareTo(b.task.time);
+      final int timeCompare = a.task.time.compareTo(b.task.time);
+      if (timeCompare != 0) {
+        return timeCompare;
+      }
+
+      return a.task.id.compareTo(b.task.id);
     });
 
     return items;
@@ -100,6 +102,8 @@ class TaskRepository {
       status: normalizedStatus,
     );
 
+    final int nextSortOrder = await _getNextSortOrder();
+
     return _database.into(_database.tasks).insert(
       TasksCompanion.insert(
         clientId: clientId,
@@ -113,6 +117,7 @@ class TaskRepository {
         status: Value(normalizedStatus),
         clientHourlyRateSnapshot: Value(clientHourlyRateSnapshot),
         completedAt: Value(completedAt),
+        sortOrder: Value(nextSortOrder),
       ),
     );
   }
@@ -162,6 +167,7 @@ class TaskRepository {
         status: Value(normalizedStatus),
         clientHourlyRateSnapshot: Value(clientHourlyRateSnapshot),
         completedAt: Value(completedAt),
+        sortOrder: Value(existingTask?.sortOrder ?? 0),
       ),
     );
 
@@ -174,6 +180,79 @@ class TaskRepository {
         .go();
 
     return rows > 0;
+  }
+
+  Future<void> updatePriorityOrder({
+    required List<int> orderedVisibleTaskIds,
+  }) async {
+    final List<Task> allTasks = await (_database.select(_database.tasks)).get();
+
+    final Map<int, Task> tasksById = <int, Task>{
+      for (final Task task in allTasks) task.id: task,
+    };
+
+    final List<Task> prioritizedTasks = orderedVisibleTaskIds
+        .map((int id) => tasksById[id])
+        .whereType<Task>()
+        .toList();
+
+    final Set<int> prioritizedIds = orderedVisibleTaskIds.toSet();
+
+    final List<Task> remainingTasks = allTasks
+      ..removeWhere((Task task) => prioritizedIds.contains(task.id))
+      ..sort((Task a, Task b) {
+        final int sortOrderCompare = a.sortOrder.compareTo(b.sortOrder);
+        if (sortOrderCompare != 0) {
+          return sortOrderCompare;
+        }
+
+        final int dateCompare = a.date.compareTo(b.date);
+        if (dateCompare != 0) {
+          return dateCompare;
+        }
+
+        final int timeCompare = a.time.compareTo(b.time);
+        if (timeCompare != 0) {
+          return timeCompare;
+        }
+
+        return a.id.compareTo(b.id);
+      });
+
+    final List<Task> finalOrder = <Task>[
+      ...prioritizedTasks,
+      ...remainingTasks,
+    ];
+
+    await _database.batch((Batch batch) {
+      for (int index = 0; index < finalOrder.length; index++) {
+        final Task task = finalOrder[index];
+
+        batch.update(
+          _database.tasks,
+          TasksCompanion(
+            sortOrder: Value(index + 1),
+          ),
+          where: (Tasks table) => table.id.equals(task.id),
+        );
+      }
+    });
+  }
+
+  Future<int> _getNextSortOrder() async {
+    final List<Task> tasks = await (_database.select(_database.tasks)).get();
+
+    if (tasks.isEmpty) {
+      return 1;
+    }
+
+    final int maxSortOrder = tasks
+        .map((Task task) => task.sortOrder)
+        .fold<int>(0, (int previous, int current) {
+      return current > previous ? current : previous;
+    });
+
+    return maxSortOrder + 1;
   }
 
   Future<double> _resolveHourlyRateSnapshot({

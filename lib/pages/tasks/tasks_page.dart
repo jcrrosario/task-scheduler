@@ -29,6 +29,12 @@ class _TasksPageState extends State<TasksPage> {
   int? _selectedClientId;
   String? _selectedStatus;
 
+  bool get _canReorder {
+    return _searchController.text.trim().isEmpty &&
+        _selectedClientId == null &&
+        _selectedStatus == null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -181,6 +187,32 @@ class _TasksPageState extends State<TasksPage> {
     }
   }
 
+  Future<void> _onReorder(int oldIndex, int newIndex) async {
+    if (!_canReorder) {
+      return;
+    }
+
+    if (newIndex > oldIndex) {
+      newIndex -= 1;
+    }
+
+    final List<TaskListItem> reorderedList = List<TaskListItem>.from(_tasks);
+    final TaskListItem movedItem = reorderedList.removeAt(oldIndex);
+    reorderedList.insert(newIndex, movedItem);
+
+    setState(() {
+      _tasks = reorderedList;
+    });
+
+    await _taskRepository.updatePriorityOrder(
+      orderedVisibleTaskIds: reorderedList
+          .map((TaskListItem item) => item.task.id)
+          .toList(),
+    );
+
+    await _loadData();
+  }
+
   bool get _hasActiveFilters {
     return _selectedClientId != null || _selectedStatus != null;
   }
@@ -315,12 +347,65 @@ class _TasksPageState extends State<TasksPage> {
                     : CrossFadeState.showFirst,
                 duration: const Duration(milliseconds: 220),
               ),
+              if (_canReorder) ...<Widget>[
+                const SizedBox(height: 12),
+                Row(
+                  children: <Widget>[
+                    Icon(
+                      Icons.drag_indicator,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Pressione e arraste os cards para definir a prioridade.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 16),
               Expanded(
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : _tasks.isEmpty
                     ? const _EmptyTasksState()
+                    : _canReorder
+                    ? ReorderableListView.builder(
+                  buildDefaultDragHandles: true,
+                  itemCount: _tasks.length,
+                  onReorder: _onReorder,
+                  proxyDecorator: (
+                      Widget child,
+                      int index,
+                      Animation<double> animation,
+                      ) {
+                    return Material(
+                      color: Colors.transparent,
+                      child: child,
+                    );
+                  },
+                  itemBuilder: (BuildContext context, int index) {
+                    final TaskListItem item = _tasks[index];
+
+                    return Padding(
+                      key: ValueKey<int>(item.task.id),
+                      padding: EdgeInsets.only(
+                        bottom: index == _tasks.length - 1 ? 0 : 12,
+                      ),
+                      child: _TaskCard(
+                        item: item,
+                        onEdit: () => _openForm(item: item),
+                        onDelete: () => _deleteTask(item),
+                        onConclude: () => _openConcludePage(item),
+                      ),
+                    );
+                  },
+                )
                     : ListView.separated(
                   itemCount: _tasks.length,
                   separatorBuilder: (_, __) =>
@@ -973,7 +1058,8 @@ class _TaskExecutionPageState extends State<TaskExecutionPage> {
                       children: <Widget>[
                         Text(
                           task.title,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          style:
+                          Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w700,
                             color: AppColors.textPrimary,
                           ),

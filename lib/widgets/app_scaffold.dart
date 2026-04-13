@@ -144,7 +144,7 @@ class _DrawerHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                'TaskScheduler',
+                'Task Scheduler',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,

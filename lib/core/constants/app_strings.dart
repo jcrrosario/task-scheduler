@@ -1,7 +1,7 @@
 class AppStrings {
   const AppStrings._();
 
-  static const String appName = 'TaskScheduler';
+  static const String appName = 'Task Scheduler';
   static const String appSubtitle = 'Gestão de tarefas';
 
   static const String defaultUsername = 'administrador';

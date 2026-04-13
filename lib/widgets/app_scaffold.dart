@@ -5,6 +5,7 @@ import 'package:task_scheduler/pages/auth/login_page.dart';
 import 'package:task_scheduler/pages/clients/clients_page.dart';
 import 'package:task_scheduler/pages/consultancy/consultancy_page.dart';
 import 'package:task_scheduler/pages/dashboard/dashboard_page.dart';
+import 'package:task_scheduler/pages/reports/reports_page.dart';
 import 'package:task_scheduler/pages/tasks/tasks_page.dart';
 
 class AppScaffold extends StatelessWidget {
@@ -78,6 +79,17 @@ class _AppDrawer extends StatelessWidget {
                     },
                   ),
                   _DrawerItem(
+                    icon: Icons.assessment_outlined,
+                    label: 'Relatórios',
+                    onTap: () {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const ReportsPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  _DrawerItem(
                     icon: Icons.settings_outlined,
                     label: 'Consultoria',
                     onTap: () {
@@ -120,8 +132,8 @@ class _DrawerHeader extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       alignment: Alignment.centerLeft,
-      child: Row(
-        children: const <Widget>[
+      child: const Row(
+        children: <Widget>[
           Icon(
             Icons.calendar_month_rounded,
             color: Colors.white,
@@ -141,7 +153,7 @@ class _DrawerHeader extends StatelessWidget {
               ),
               SizedBox(height: 4),
               Text(
-                'PRINCIPIA',
+                'Principia Consultoria',
                 style: TextStyle(
                   color: Colors.white70,
                   fontSize: 12,

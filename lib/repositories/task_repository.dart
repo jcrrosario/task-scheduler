@@ -79,6 +79,68 @@ class TaskRepository {
     return items;
   }
 
+  Future<List<TaskListItem>> getTasksForReport({
+    required int clientId,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    final DateTime normalizedStart = DateTime(
+      startDate.year,
+      startDate.month,
+      startDate.day,
+      0,
+      0,
+      0,
+    );
+
+    final DateTime normalizedEnd = DateTime(
+      endDate.year,
+      endDate.month,
+      endDate.day,
+      23,
+      59,
+      59,
+      999,
+    );
+
+    final List<Task> tasks = await (_database.select(_database.tasks)
+      ..where((Tasks table) => table.clientId.equals(clientId))
+      ..where((Tasks table) => table.date.isBiggerOrEqualValue(normalizedStart))
+      ..where((Tasks table) => table.date.isSmallerOrEqualValue(normalizedEnd)))
+        .get();
+
+    final Client? client = await (_database.select(_database.clients)
+      ..where((Clients table) => table.id.equals(clientId)))
+        .getSingleOrNull();
+
+    final String clientName = client?.name ?? 'Cliente não encontrado';
+
+    final List<TaskListItem> items = tasks
+        .map(
+          (Task task) => TaskListItem(
+        task: task,
+        clientName: clientName,
+      ),
+    )
+        .toList();
+
+    items.sort((TaskListItem a, TaskListItem b) {
+      final int dateCompare = a.task.date.compareTo(b.task.date);
+      if (dateCompare != 0) {
+        return dateCompare;
+      }
+
+      final int timeCompare = a.task.time.compareTo(b.task.time);
+      if (timeCompare != 0) {
+        return timeCompare;
+      }
+
+      return a.task.id.compareTo(b.task.id);
+    });
+
+    return items;
+  }
+
   Future<int> create({
     required int clientId,
     required String title,

@@ -21,6 +21,7 @@ dependencies:
   intl: ^0.20.2
   pdf: ^3.11.0
   printing: ^5.13.4
+  local_auth: ^3.0.1
 
 dev_dependencies:
   flutter_test:

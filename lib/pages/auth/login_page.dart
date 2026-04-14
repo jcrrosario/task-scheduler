@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:task_scheduler/core/constants/app_colors.dart';
 import 'package:task_scheduler/core/constants/app_strings.dart';
-import 'package:task_scheduler/pages/tasks/tasks_page.dart'; // ✅ ALTERADO
+import 'package:task_scheduler/pages/tasks/tasks_page.dart';
 import 'package:task_scheduler/services/auth_service.dart';
+import 'package:task_scheduler/services/biometric_auth_service.dart';
 import 'package:task_scheduler/widgets/app_primary_button.dart';
 import 'package:task_scheduler/widgets/app_text_field.dart';
 
-/// Tela de Login do sistema
-/// Responsável por autenticar o usuário e redirecionar para a aplicação
+/// Tela de Login do sistema.
+/// Responsável por autenticar o usuário e redirecionar para a aplicação.
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -16,19 +17,23 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  /// Chave do formulário
+  /// Chave do formulário.
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  /// Serviço de autenticação
+  /// Serviços.
   final AuthService _authService = AuthService();
+  final BiometricAuthService _biometricAuthService = BiometricAuthService();
 
-  /// Controllers
+  /// Controllers.
   late final TextEditingController _usernameController;
   late final TextEditingController _passwordController;
 
-  /// Controle de UI
+  /// Controle de UI.
   bool _obscurePassword = true;
   bool _isLoading = false;
+  bool _isBiometricAvailable = false;
+  bool _isBiometricEnabled = false;
+  bool _hasTriedAutoBiometric = false;
 
   @override
   void initState() {
@@ -37,8 +42,9 @@ class _LoginPageState extends State<LoginPage> {
     _usernameController = TextEditingController(
       text: AppStrings.defaultUsername,
     );
-
     _passwordController = TextEditingController();
+
+    _initializeBiometricState();
   }
 
   @override
@@ -48,11 +54,39 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  /// Método responsável por validar login e redirecionar
+  Future<void> _initializeBiometricState() async {
+    final bool isBiometricAvailable =
+    await _biometricAuthService.isBiometricAvailable();
+    final bool isBiometricEnabled = isBiometricAvailable
+        ? await _biometricAuthService.isBiometricEnabled()
+        : false;
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isBiometricAvailable = isBiometricAvailable;
+      _isBiometricEnabled = isBiometricEnabled;
+    });
+
+    if (_isBiometricAvailable &&
+        _isBiometricEnabled &&
+        !_hasTriedAutoBiometric) {
+      _hasTriedAutoBiometric = true;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await _loginWithBiometrics(
+          silentOnCancel: true,
+        );
+      });
+    }
+  }
+
   Future<void> _submit() async {
     final bool isValid = _formKey.currentState?.validate() ?? false;
 
-    if (!isValid) {
+    if (!isValid || _isLoading) {
       return;
     }
 
@@ -69,7 +103,9 @@ class _LoginPageState extends State<LoginPage> {
       password: password,
     );
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     setState(() {
       _isLoading = false;
@@ -84,8 +120,142 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    /// ✅ ALTERAÇÃO PRINCIPAL:
-    /// Redireciona para a tela de Tarefas ao invés do Dashboard
+    await _offerBiometricActivation();
+
+    if (!mounted) {
+      return;
+    }
+
+    _goToTasksPage();
+  }
+
+  Future<void> _offerBiometricActivation() async {
+    if (!_isBiometricAvailable) {
+      return;
+    }
+
+    if (_isBiometricEnabled) {
+      return;
+    }
+
+    final bool? shouldEnable = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Ativar biometria'),
+          content: const Text(
+            'Deseja ativar a biometria para entrar no app mais rapidamente nas próximas vezes?',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Agora não'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Ativar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldEnable != true || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    final bool didAuthenticate = await _biometricAuthService.authenticate(
+      reason: 'Confirme sua biometria para ativar o acesso rápido.',
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (didAuthenticate) {
+      await _biometricAuthService.enableBiometric();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isBiometricEnabled = true;
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Biometria ativada com sucesso.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('A biometria não foi ativada.'),
+      ),
+    );
+  }
+
+  Future<void> _loginWithBiometrics({
+    bool silentOnCancel = false,
+  }) async {
+    if (_isLoading) {
+      return;
+    }
+
+    if (!_isBiometricAvailable || !_isBiometricEnabled) {
+      if (!silentOnCancel && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Biometria não disponível neste dispositivo.'),
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    final bool didAuthenticate = await _biometricAuthService.authenticate(
+      reason: 'Use sua biometria para acessar o Task Scheduler.',
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (!didAuthenticate) {
+      if (!silentOnCancel) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Autenticação biométrica não concluída.'),
+          ),
+        );
+      }
+      return;
+    }
+
+    _goToTasksPage();
+  }
+
+  void _goToTasksPage() {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
         builder: (_) => const TasksPage(),
@@ -126,7 +296,6 @@ class _LoginPageState extends State<LoginPage> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
-                          /// Ícone do App
                           Container(
                             width: 76,
                             height: 76,
@@ -147,20 +316,14 @@ class _LoginPageState extends State<LoginPage> {
                               size: 36,
                             ),
                           ),
-
                           const SizedBox(height: 20),
-
-                          /// Nome do App
                           Text(
                             AppStrings.appName,
                             style: textTheme.headlineMedium?.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-
                           const SizedBox(height: 8),
-
-                          /// Subtítulo
                           Text(
                             AppStrings.appSubtitle,
                             textAlign: TextAlign.center,
@@ -168,10 +331,7 @@ class _LoginPageState extends State<LoginPage> {
                               color: AppColors.textSecondary,
                             ),
                           ),
-
                           const SizedBox(height: 32),
-
-                          /// Título Login
                           Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
@@ -183,19 +343,13 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                           ),
-
                           const SizedBox(height: 10),
-
-                          /// Campo Usuário
                           AppTextField(
                             controller: _usernameController,
                             hintText: AppStrings.defaultUsername,
                             readOnly: true,
                           ),
-
                           const SizedBox(height: 20),
-
-                          /// Label Senha
                           Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
@@ -207,10 +361,7 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                           ),
-
                           const SizedBox(height: 10),
-
-                          /// Campo Senha
                           AppTextField(
                             controller: _passwordController,
                             hintText: AppStrings.passwordHint,
@@ -232,10 +383,7 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                           ),
-
                           const SizedBox(height: 24),
-
-                          /// Botão Login
                           AppPrimaryButton(
                             label: _isLoading
                                 ? 'Entrando...'
@@ -243,10 +391,20 @@ class _LoginPageState extends State<LoginPage> {
                             icon: Icons.lock_outline_rounded,
                             onPressed: _isLoading ? null : _submit,
                           ),
-
+                          if (_isBiometricAvailable && _isBiometricEnabled) ...<Widget>[
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: _isLoading
+                                    ? null
+                                    : () => _loginWithBiometrics(),
+                                icon: const Icon(Icons.fingerprint),
+                                label: const Text('Entrar com biometria'),
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 24),
-
-                          /// Rodapé
                           Text(
                             '© 2026 Serenyo Tecnologia Ltda.',
                             textAlign: TextAlign.center,

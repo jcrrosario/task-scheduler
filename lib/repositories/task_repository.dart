@@ -105,8 +105,12 @@ class TaskRepository {
 
     final List<Task> tasks = await (_database.select(_database.tasks)
       ..where((Tasks table) => table.clientId.equals(clientId))
-      ..where((Tasks table) => table.date.isBiggerOrEqualValue(normalizedStart))
-      ..where((Tasks table) => table.date.isSmallerOrEqualValue(normalizedEnd)))
+      ..where(
+            (Tasks table) => table.date.isBiggerOrEqualValue(normalizedStart),
+      )
+      ..where(
+            (Tasks table) => table.date.isSmallerOrEqualValue(normalizedEnd),
+      ))
         .get();
 
     final Client? client = await (_database.select(_database.clients)
@@ -246,6 +250,7 @@ class TaskRepository {
 
   Future<void> updatePriorityOrder({
     required List<int> orderedVisibleTaskIds,
+    int? clientId,
   }) async {
     final List<Task> allTasks = await (_database.select(_database.tasks)).get();
 
@@ -257,6 +262,51 @@ class TaskRepository {
         .map((int id) => tasksById[id])
         .whereType<Task>()
         .toList();
+
+    if (clientId != null) {
+      final List<Task> clientTasks = allTasks
+          .where((Task task) => task.clientId == clientId)
+          .toList()
+        ..sort((Task a, Task b) {
+          final int sortOrderCompare = a.sortOrder.compareTo(b.sortOrder);
+          if (sortOrderCompare != 0) {
+            return sortOrderCompare;
+          }
+
+          final int dateCompare = a.date.compareTo(b.date);
+          if (dateCompare != 0) {
+            return dateCompare;
+          }
+
+          final int timeCompare = a.time.compareTo(b.time);
+          if (timeCompare != 0) {
+            return timeCompare;
+          }
+
+          return a.id.compareTo(b.id);
+        });
+
+      final Map<int, int> originalClientPositions = <int, int>{};
+
+      for (int index = 0; index < clientTasks.length; index++) {
+        originalClientPositions[clientTasks[index].id] = index;
+      }
+
+      await _database.batch((Batch batch) {
+        for (int index = 0; index < prioritizedTasks.length; index++) {
+          final Task task = prioritizedTasks[index];
+          batch.update(
+            _database.tasks,
+            TasksCompanion(
+              sortOrder: Value(index + 1),
+            ),
+            where: (Tasks table) => table.id.equals(task.id),
+          );
+        }
+      });
+
+      return;
+    }
 
     final Set<int> prioritizedIds = orderedVisibleTaskIds.toSet();
 
@@ -308,9 +358,11 @@ class TaskRepository {
       return 1;
     }
 
-    final int maxSortOrder = tasks
-        .map((Task task) => task.sortOrder)
-        .fold<int>(0, (int previous, int current) {
+    final int maxSortOrder =
+    tasks.map((Task task) => task.sortOrder).fold<int>(0, (
+        int previous,
+        int current,
+        ) {
       return current > previous ? current : previous;
     });
 

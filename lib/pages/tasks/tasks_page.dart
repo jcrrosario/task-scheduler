@@ -30,9 +30,7 @@ class _TasksPageState extends State<TasksPage> {
   String? _selectedStatus;
 
   bool get _canReorder {
-    return _searchController.text.trim().isEmpty &&
-        _selectedClientId == null &&
-        _selectedStatus == null;
+    return _searchController.text.trim().isEmpty && _selectedStatus == null;
   }
 
   @override
@@ -65,14 +63,16 @@ class _TasksPageState extends State<TasksPage> {
 
     final List<TaskListItem> visibleTasks = _selectedStatus == null
         ? repositoryTasks.where((TaskListItem item) {
-      final String normalizedStatus = item.task.status.trim().toLowerCase();
+      final String normalizedStatus =
+      item.task.status.trim().toLowerCase();
 
       return normalizedStatus == 'pendente' ||
           normalizedStatus == 'em andamento';
     }).toList()
         : _selectedStatus == 'Abertos'
         ? repositoryTasks.where((TaskListItem item) {
-      final String normalizedStatus = item.task.status.trim().toLowerCase();
+      final String normalizedStatus =
+      item.task.status.trim().toLowerCase();
 
       return normalizedStatus == 'pendente' ||
           normalizedStatus == 'em andamento';
@@ -215,6 +215,7 @@ class _TasksPageState extends State<TasksPage> {
       orderedVisibleTaskIds: reorderedList
           .map((TaskListItem item) => item.task.id)
           .toList(),
+      clientId: _selectedClientId,
     );
 
     await _loadData();
@@ -370,7 +371,9 @@ class _TasksPageState extends State<TasksPage> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Pressione e arraste os cards para definir a prioridade.',
+                        _selectedClientId == null
+                            ? 'Pressione e arraste os cards para definir a prioridade.'
+                            : 'Pressione e arraste os cards para definir a prioridade deste cliente.',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -406,13 +409,15 @@ class _TasksPageState extends State<TasksPage> {
                     return Padding(
                       key: ValueKey<int>(item.task.id),
                       padding: EdgeInsets.only(
-                        bottom: index == _tasks.length - 1 ? 0 : 12,
+                        bottom:
+                        index == _tasks.length - 1 ? 0 : 12,
                       ),
                       child: _TaskCard(
                         item: item,
                         onEdit: () => _openForm(item: item),
                         onDelete: () => _deleteTask(item),
-                        onConclude: () => _openConcludePage(item),
+                        onConclude: () =>
+                            _openConcludePage(item),
                       ),
                     );
                   },
@@ -428,7 +433,8 @@ class _TasksPageState extends State<TasksPage> {
                       item: item,
                       onEdit: () => _openForm(item: item),
                       onDelete: () => _deleteTask(item),
-                      onConclude: () => _openConcludePage(item),
+                      onConclude: () =>
+                          _openConcludePage(item),
                     );
                   },
                 ),
@@ -931,9 +937,8 @@ class _TaskFormSheetState extends State<TaskFormSheet> {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
-                      onPressed: _isSaving
-                          ? null
-                          : () => Navigator.of(context).pop(false),
+                      onPressed:
+                      _isSaving ? null : () => Navigator.of(context).pop(false),
                       child: const Text('Cancelar'),
                     ),
                   ),
@@ -1152,9 +1157,8 @@ class _TaskExecutionPageState extends State<TaskExecutionPage> {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton(
-                    onPressed: _isSaving
-                        ? null
-                        : () => Navigator.of(context).pop(false),
+                    onPressed:
+                    _isSaving ? null : () => Navigator.of(context).pop(false),
                     child: const Text('Cancelar'),
                   ),
                 ),

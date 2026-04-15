@@ -60,10 +60,17 @@ class _TasksPageState extends State<TasksPage> {
     final List<TaskListItem> repositoryTasks = await _taskRepository.getAll(
       search: _searchController.text,
       clientId: _selectedClientId,
-      status: _selectedStatus,
+      status: _selectedStatus == 'Abertos' ? null : _selectedStatus,
     );
 
     final List<TaskListItem> visibleTasks = _selectedStatus == null
+        ? repositoryTasks.where((TaskListItem item) {
+      final String normalizedStatus = item.task.status.trim().toLowerCase();
+
+      return normalizedStatus == 'pendente' ||
+          normalizedStatus == 'em andamento';
+    }).toList()
+        : _selectedStatus == 'Abertos'
         ? repositoryTasks.where((TaskListItem item) {
       final String normalizedStatus = item.task.status.trim().toLowerCase();
 
@@ -308,6 +315,10 @@ class _TasksPageState extends State<TasksPage> {
                           DropdownMenuItem<String?>(
                             value: null,
                             child: Text('Todos'),
+                          ),
+                          DropdownMenuItem<String?>(
+                            value: 'Abertos',
+                            child: Text('Abertos'),
                           ),
                           DropdownMenuItem<String?>(
                             value: 'Pendente',
